@@ -339,7 +339,7 @@
           signal: AbortSignal.timeout(3000),
         });
         const data = await r.json();
-        state.proxyOnline = data.ok && data.total > 0;
+        state.proxyOnline = data.ok;
         updateProxyStatus(state.proxyOnline, data.available || []);
       } catch (e) {
         state.proxyOnline = false;
