@@ -6,6 +6,11 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// 调试：打印所有环境变量中与 Key 相关的内容
+const allEnvKeys = Object.keys(process.env).filter(k => k.includes('KEY') || k.includes('API') || k.includes('DEEPSEEK') || k.includes('KIMI') || k.includes('GEMINI'));
+console.log('🔍 环境变量检测:', allEnvKeys.length > 0 ? allEnvKeys.join(', ') : '未找到相关变量');
+allEnvKeys.forEach(k => console.log(`   ${k}: ${process.env[k] ? '✅ (' + process.env[k].slice(0, 12) + '...)' : '❌ 空'}`));
+
 // API Keys: 优先环境变量（Railway），其次 config.json（本地开发）
 const KEYS = {
   deepseek: process.env.DEEPSEEK_API_KEY || '',
