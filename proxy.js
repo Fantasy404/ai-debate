@@ -242,6 +242,22 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, available, total: available.length });
 });
 
+// ---------- 调试端点（部署排查问题用） ----------
+app.get('/api/debug', (req, res) => {
+  res.json({
+    keys: {
+      deepseek: KEYS.deepseek ? `已设置 (${KEYS.deepseek.slice(0, 10)}...)` : '未设置',
+      gemini: KEYS.gemini ? `已设置 (${KEYS.gemini.slice(0, 10)}...)` : '未设置',
+      kimi: KEYS.kimi ? `已设置 (${KEYS.kimi.slice(0, 10)}...)` : '未设置',
+    },
+    rawEnv: {
+      DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ? `存在 (长度 ${process.env.DEEPSEEK_API_KEY.length})` : '不存在',
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY ? `存在 (长度 ${process.env.GEMINI_API_KEY.length})` : '不存在',
+      KIMI_API_KEY: process.env.KIMI_API_KEY ? `存在 (长度 ${process.env.KIMI_API_KEY.length})` : '不存在',
+    }
+  });
+});
+
 app.listen(PORT, () => {
   const count = [KEYS.deepseek, KEYS.gemini, KEYS.kimi].filter(Boolean).length;
   const names = ['DeepSeek','Gemini','Kimi'].filter((_,i) => [KEYS.deepseek,KEYS.gemini,KEYS.kimi][i]);
