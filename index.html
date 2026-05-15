@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚖️ AI 辩论模拟器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+    * { font-family: 'Inter', 'Noto Sans SC', sans-serif; }
+
+    /* 打字光标闪烁 */
+    .typing-cursor::after {
+      content: '▊';
+      animation: blink 1s step-end infinite;
+      color: #6366f1;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* 消息淡入 */
+    .message-enter {
+      animation: fadeInUp 0.3s ease-out;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 脉冲指示器 */
+    .pulse-dot {
+      animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.85); } }
+
+    /* 滚动条美化 */
+    .custom-scroll::-webkit-scrollbar { width: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* 分屏分割线 */
+    .divider-vertical {
+      background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 50%, #ef4444 100%);
+      width: 3px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-100">
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="bg-slate-800 border-b border-slate-700 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <i data-lucide="swords" class="w-7 h-7 text-indigo-400"></i>
+        <h1 class="text-xl font-bold tracking-tight">AI 辩论模拟器</h1>
+        <span id="proxyStatus" class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">
+          <span class="w-2 h-2 rounded-full bg-slate-500"></span> 代理检测中
+        </span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="btnToggleConfig" class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors">
+          <i data-lucide="settings" class="w-4 h-4"></i> 配置
+        </button>
+        <button id="btnExport" class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors" disabled>
+          <i data-lucide="download" class="w-4 h-4"></i> 导出战报
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== CONFIG PANEL ==================== -->
+  <div id="configPanel" class="bg-slate-800 border-b border-slate-700 overflow-hidden transition-all duration-300" style="max-height: 0px">
+    <div class="max-w-7xl mx-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <!-- 正方立场 -->
+      <div class="lg:col-span-3">
+        <label class="block text-xs font-semibold text-blue-400 mb-1">🟦 正方立场</label>
+        <input id="proPositionInput" type="text" placeholder="例如：人工智能应该拥有独立的法律人格，享有民事权利与义务"
+          class="w-full px-3 py-2 bg-slate-900 border border-blue-500/30 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors">
+      </div>
+
+      <!-- 反方立场 -->
+      <div class="lg:col-span-3">
+        <label class="block text-xs font-semibold text-red-400 mb-1">🟥 反方立场</label>
+        <input id="conPositionInput" type="text" placeholder="例如：人工智能不应拥有法律人格，其责任应由开发者或使用者承担"
+          class="w-full px-3 py-2 bg-slate-900 border border-red-500/30 rounded-lg text-sm focus:outline-none focus:border-red-500 transition-colors">
+      </div>
+
+      <!-- 正方角色 -->
+      <div>
+        <label class="block text-xs font-semibold text-blue-400 mb-1">🟦 正方人设</label>
+        <select id="proRoleSelect" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors">
+          <option value="逻辑辩手">🧠 逻辑辩手 — 严密推理，环环相扣</option>
+          <option value="激进辩手">⚡ 激进辩手 — 言辞犀利，气势逼人</option>
+          <option value="幽默辩手">😏 幽默辩手 — 寓庄于谐，讽刺犀利</option>
+          <option value="数据专家">📊 数据专家 — 统计案例，事实为王</option>
+          <option value="苏格拉底式">🏛️ 苏格拉底式 — 连续追问，引导自省</option>
+        </select>
+      </div>
+
+      <!-- 反方角色 -->
+      <div>
+        <label class="block text-xs font-semibold text-red-400 mb-1">🟥 反方人设</label>
+        <select id="conRoleSelect" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-red-500 transition-colors">
+          <option value="激进辩手">⚡ 激进辩手 — 言辞犀利，气势逼人</option>
+          <option value="逻辑辩手">🧠 逻辑辩手 — 严密推理，环环相扣</option>
+          <option value="幽默辩手">😏 幽默辩手 — 寓庄于谐，讽刺犀利</option>
+          <option value="数据专家">📊 数据专家 — 统计案例，事实为王</option>
+          <option value="苏格拉底式">🏛️ 苏格拉底式 — 连续追问，引导自省</option>
+        </select>
+      </div>
+
+      <!-- 轮数 -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">辩论轮数</label>
+        <input id="roundsInput" type="number" min="1" max="10" value="3"
+          class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+      </div>
+
+      <!-- 语速 -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">打字速度 (毫秒/字)</label>
+        <input id="speedInput" type="range" min="10" max="80" value="30"
+          class="w-full accent-indigo-500">
+        <div class="flex justify-between text-xs text-slate-500"><span>快</span><span id="speedLabel">30ms</span><span>慢</span></div>
+      </div>
+
+      <!-- 战术 -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">辩论战术注入</label>
+        <select id="tacticSelect" class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+          <option value="none">无特殊战术</option>
+          <option value="socratic">🏛️ 苏格拉底式提问</option>
+          <option value="reductio">🔄 归谬法 (Reductio ad Absurdum)</option>
+          <option value="equivocation">🔍 偷换概念检测</option>
+          <option value="data-driven">📈 数据驱动论证</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN DEBATE ARENA ==================== -->
+  <div class="max-w-7xl mx-auto p-4 flex flex-col md:flex-row gap-0" style="min-height: calc(100vh - 200px)">
+
+    <!-- 正方 (Pro) -->
+    <div class="flex-1 flex flex-col bg-slate-800/50 rounded-xl border border-blue-500/30 m-1">
+      <div class="flex items-center gap-2 px-4 py-3 border-b border-blue-500/20 bg-blue-500/5 rounded-t-xl">
+        <div class="w-3 h-3 rounded-full bg-blue-500 pulse-dot"></div>
+        <span class="font-semibold text-blue-400 text-sm">正方 · PRO</span>
+        <span id="proRoleTag" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">逻辑辩手</span>
+        <span id="proApiBadge" class="hidden text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300 ml-auto"></span>
+      </div>
+      <div id="proMessages" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll">
+        <div class="text-center text-slate-600 text-sm py-12">
+          <i data-lucide="message-square" class="w-10 h-10 mx-auto mb-2 opacity-30"></i>
+          <p>等待正方发言...</p>
+        </div>
+      </div>
+      <div id="proHumanInput" class="hidden border-t border-amber-500/30 bg-amber-500/5 p-3">
+        <textarea id="proHumanText" rows="2" placeholder="轮到你发言了（正方）..." class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-amber-500 resize-none text-slate-200"></textarea>
+        <div class="flex items-center justify-between mt-2">
+          <label class="flex items-center gap-1 text-xs text-slate-400"><input type="checkbox" id="proKeepTakeover" class="accent-amber-500"> 持续接管</label>
+          <div class="flex gap-2">
+            <button id="btnProRelease" class="px-3 py-1.5 text-xs rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">释放 AI</button>
+            <button id="btnProSend" class="px-4 py-1.5 text-xs rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 中轴线 -->
+    <div class="flex flex-col items-center justify-center px-2 py-4 gap-3 min-w-[120px]">
+      <div class="divider-vertical h-16 hidden md:block"></div>
+      <div class="text-center space-y-2">
+        <div id="roundBadge" class="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full">
+          第 0/0 轮
+        </div>
+        <div id="timerDisplay" class="text-2xl font-mono font-bold text-slate-300">00:00</div>
+        <div id="fastestApi" class="text-xs text-slate-500">等待开始</div>
+      </div>
+      <div class="divider-vertical h-16 hidden md:block"></div>
+    </div>
+
+    <!-- 反方 (Con) -->
+    <div class="flex-1 flex flex-col bg-slate-800/50 rounded-xl border border-red-500/30 m-1">
+      <div class="flex items-center gap-2 px-4 py-3 border-b border-red-500/20 bg-red-500/5 rounded-t-xl">
+        <div class="w-3 h-3 rounded-full bg-red-500 pulse-dot"></div>
+        <span class="font-semibold text-red-400 text-sm">反方 · CON</span>
+        <span id="conRoleTag" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300">激进辩手</span>
+        <span id="conApiBadge" class="hidden text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300 ml-auto"></span>
+      </div>
+      <div id="conMessages" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll">
+        <div class="text-center text-slate-600 text-sm py-12">
+          <i data-lucide="message-square" class="w-10 h-10 mx-auto mb-2 opacity-30"></i>
+          <p>等待反方发言...</p>
+        </div>
+      </div>
+      <div id="conHumanInput" class="hidden border-t border-amber-500/30 bg-amber-500/5 p-3">
+        <textarea id="conHumanText" rows="2" placeholder="轮到你发言了（反方）..." class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-amber-500 resize-none text-slate-200"></textarea>
+        <div class="flex items-center justify-between mt-2">
+          <label class="flex items-center gap-1 text-xs text-slate-400"><input type="checkbox" id="conKeepTakeover" class="accent-amber-500"> 持续接管</label>
+          <div class="flex gap-2">
+            <button id="btnConRelease" class="px-3 py-1.5 text-xs rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">释放 AI</button>
+            <button id="btnConSend" class="px-4 py-1.5 text-xs rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== BOTTOM CONTROLS ==================== -->
+  <div class="bg-slate-800 border-t border-slate-700 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col items-center gap-3">
+      <!-- 模式切换 -->
+      <div class="flex items-center gap-2 text-xs text-slate-500">
+        <span>模式：</span>
+        <button id="btnModeAIAI" class="px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-semibold transition-colors">🤖 AI vs AI</button>
+        <button id="btnModeHumanPro" class="px-3 py-1 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition-colors">👤 我是正方</button>
+        <button id="btnModeHumanCon" class="px-3 py-1 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition-colors">👤 我是反方</button>
+      </div>
+      <!-- 操作按钮 -->
+      <div class="flex items-center justify-center gap-3 flex-wrap">
+        <button id="btnStart" class="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-semibold text-sm transition-all active:scale-95">
+          <i data-lucide="play" class="w-4 h-4"></i> 开始辩论
+        </button>
+        <button id="btnPause" class="flex items-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded-lg text-sm transition-all" disabled>
+          <i data-lucide="pause" class="w-4 h-4"></i> 暂停
+        </button>
+        <button id="btnTakeoverPro" class="flex items-center gap-1 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 disabled:opacity-40 border border-blue-500/30 text-blue-300 rounded-lg text-xs transition-all" disabled>
+          <i data-lucide="user-plus" class="w-3 h-3"></i> 接管正方
+        </button>
+        <button id="btnTakeoverCon" class="flex items-center gap-1 px-3 py-2 bg-red-600/20 hover:bg-red-600/30 disabled:opacity-40 border border-red-500/30 text-red-300 rounded-lg text-xs transition-all" disabled>
+          <i data-lucide="user-plus" class="w-3 h-3"></i> 接管反方
+        </button>
+        <button id="btnInterject" class="flex items-center gap-2 px-4 py-2.5 bg-amber-600/20 hover:bg-amber-600/30 disabled:opacity-40 border border-amber-500/30 text-amber-300 rounded-lg text-sm transition-all" disabled>
+          <i data-lucide="message-circle" class="w-4 h-4"></i> 人工插话
+        </button>
+        <button id="btnJudge" class="flex items-center gap-2 px-4 py-2.5 bg-purple-600/20 hover:bg-purple-600/30 disabled:opacity-40 border border-purple-500/30 text-purple-300 rounded-lg text-sm transition-all" disabled>
+          <i data-lucide="gavel" class="w-4 h-4"></i> 裁判总结
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 插话弹窗 -->
+  <div id="interjectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden">
+    <div class="bg-slate-800 border border-slate-600 rounded-xl w-full max-w-lg mx-4 shadow-2xl">
+      <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
+        <h3 class="font-semibold flex items-center gap-2"><i data-lucide="message-circle" class="w-5 h-5 text-amber-400"></i> 人工插话</h3>
+        <button onclick="closeInterject()" class="p-1 hover:bg-slate-700 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-5 space-y-3">
+        <p class="text-sm text-slate-400">输入一段引导文字，帮 AI 重新聚焦论点：</p>
+        <textarea id="interjectText" rows="3" placeholder="我认为你需要从...角度重新考虑..." class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm focus:outline-none focus:border-amber-500 resize-none"></textarea>
+        <div class="flex justify-end gap-2">
+          <button onclick="closeInterject()" class="px-4 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors">取消</button>
+          <button id="btnSendInterject" class="px-4 py-2 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 transition-colors font-semibold">发送引导</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 裁判总结弹窗 -->
+  <div id="judgeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden">
+    <div class="bg-slate-800 border border-slate-600 rounded-xl w-full max-w-2xl mx-4 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
+        <h3 class="font-semibold flex items-center gap-2"><i data-lucide="gavel" class="w-5 h-5 text-purple-400"></i> 裁判总结</h3>
+        <button onclick="closeJudge()" class="p-1 hover:bg-slate-700 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-5 overflow-y-auto custom-scroll flex-1">
+        <div id="judgeContent" class="text-sm text-slate-300 space-y-3">
+          <div class="flex items-center justify-center py-8">
+            <div class="flex items-center gap-2 text-slate-500">
+              <div class="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              裁判正在分析双方的论点...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 通知 -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+    <div class="px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-600 shadow-xl text-sm whitespace-nowrap"></div>
+  </div>
+
+  <script>
+    // ==================== STATE ====================
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => document.querySelectorAll(s);
+
+    const state = {
+      proPosition: '',
+      conPosition: '',
+      proRole: '逻辑辩手',
+      conRole: '激进辩手',
+      rounds: 3,
+      speed: 30,
+      tactic: 'none',
+      currentRound: 0,
+      debateHistory: [],
+      isRunning: false,
+      isPaused: false,
+      isFinishing: false,
+      pauseResolver: null,
+      humanInputResolver: null,
+      globalTimer: 0,
+      timerInterval: null,
+      proxyOnline: false,
+      debateMode: 'ai-vs-ai',     // 'ai-vs-ai' | 'human-vs-ai'
+      humanSide: null,             // 'pro' | 'con'
+      takeoverActive: false,       // 接管中
+      takeoverSide: null,          // 'pro' | 'con'
+      abortControllers: [],        // 用于取消进行中的 AI 请求
+    };
+
+    // ==================== TOAST ====================
+    function toast(msg, duration = 2500) {
+      const el = $('#toast');
+      el.firstElementChild.textContent = msg;
+      el.classList.remove('translate-y-20', 'opacity-0');
+      el.classList.add('translate-y-0', 'opacity-100');
+      clearTimeout(el._tid);
+      el._tid = setTimeout(() => {
+        el.classList.add('translate-y-20', 'opacity-0');
+        el.classList.remove('translate-y-0', 'opacity-100');
+      }, duration);
+    }
+
+    // ==================== PROXY CHECK ====================
+    async function checkProxy() {
+      try {
+        const r = await fetch('/api/health', {
+          signal: AbortSignal.timeout(3000),
+        });
+        const data = await r.json();
+        state.proxyOnline = data.ok && data.total > 0;
+        updateProxyStatus(state.proxyOnline, data.available || []);
+      } catch (e) {
+        state.proxyOnline = false;
+        updateProxyStatus(false, []);
+      }
+    }
+
+    function updateProxyStatus(online, available) {
+      const el = $('#proxyStatus');
+      if (online) {
+        el.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> 代理已连接';
+        el.className = 'flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400';
+      } else {
+        el.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> 代理未连接';
+        el.className = 'flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400';
+      }
+    }
+
+    // ==================== TIMER ====================
+    function startTimer() {
+      state.globalTimer = 0;
+      updateTimerDisplay();
+      state.timerInterval = setInterval(() => {
+        state.globalTimer++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(state.timerInterval);
+      state.timerInterval = null;
+    }
+
+    function updateTimerDisplay() {
+      const t = state.globalTimer;
+      const m = String(Math.floor(t / 60)).padStart(2, '0');
+      const s = String(t % 60).padStart(2, '0');
+      $('#timerDisplay').textContent = `${m}:${s}`;
+    }
+
+    function updateRoundBadge() {
+      $('#roundBadge').textContent = `第 ${Math.min(state.currentRound, state.rounds)}/${state.rounds} 轮`;
+    }
+
+    // ==================== SYSTEM PROMPT ====================
+    function buildSystemPrompt(side) {
+      const position = side === 'pro'
+        ? (state.proPosition || $('#proPositionInput').value.trim())
+        : (state.conPosition || $('#conPositionInput').value.trim());
+      const role = side === 'pro' ? state.proRole : state.conRole;
+      const stanceVerb = side === 'pro' ? '论证' : '反驳';
+
+      let base = `你是一名专业辩论选手，代表${side === 'pro' ? '正方' : '反方'}。
+
+你的核心立场是：「${position}」
+
+请坚定地为这一立场辩护。你的辩论风格：${role}。
+
+核心规则：
+1. 每次发言控制在150-250字之间，简洁有力
+2. 必须直接回应和${stanceVerb}对手上一轮的论点
+3. 使用逻辑推理、事实和数据支撑观点
+4. 保持坚定但不失礼貌的语气
+5. 不要重复自己已经说过的论点
+6. 只输出你的发言内容，不要加"正方："等前缀`;
+
+      // 战术注入
+      switch (state.tactic) {
+        case 'socratic':
+          base += '\n\n战术指令：使用苏格拉底式提问法，通过连续追问揭露对方论证中的矛盾和漏洞，而不是直接给出结论。每轮至少包含一个犀利的反问。';
+          break;
+        case 'reductio':
+          base += '\n\n战术指令：使用归谬法，将对方论点推向逻辑极端以展示其荒谬性。先承认对方的前提，然后推导出明显不合理的结果。';
+          break;
+        case 'equivocation':
+          base += '\n\n战术指令：警惕并指出对方可能存在的偷换概念——即用同一词语的不同含义来误导听众。如果发现，明确指出并纠正。';
+          break;
+        case 'data-driven':
+          base += '\n\n战术指令：优先使用具体数据、研究结果和真实案例。每轮至少引用一个具体数据点或研究结论来支撑你的观点。';
+          break;
+      }
+
+      return base;
+    }
+
+    function buildPrompt(side) {
+      const position = side === 'pro'
+        ? (state.proPosition || $('#proPositionInput').value.trim())
+        : (state.conPosition || $('#conPositionInput').value.trim());
+      const history = state.debateHistory;
+      const round = state.currentRound;
+
+      let prompt = `你的立场：「${position}」\n\n这是第 ${round} 轮辩论。`;
+      if (history.length > 0) {
+        const last = history[history.length - 1];
+        prompt += `\n\n对手刚才说：「${last.text}」\n\n请回应。`;
+      } else {
+        prompt += `\n\n请发表你的开场立论。`;
+      }
+      if (state.humanInterjection) {
+        prompt += `\n\n[人工引导] ${state.humanInterjection}`;
+      }
+      return prompt;
+    }
+
+    // ==================== API CALLS ====================
+    async function callAPI(provider, prompt, systemPrompt) {
+      const endpoint = `/api/${provider}`;
+      const controller = new AbortController();
+      state.abortControllers.push(controller);
+
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, systemPrompt }),
+          signal: controller.signal,
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+          throw new Error(err.error || `${provider} 返回 ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        return { text: data.text, model: data.model };
+      } catch (e) {
+        if (e.name === 'AbortError') throw new Error(`${provider} 请求被取消`);
+        throw e;
+      } finally {
+        const idx = state.abortControllers.indexOf(controller);
+        if (idx > -1) state.abortControllers.splice(idx, 1);
+      }
+    }
+
+    async function raceAI(side) {
+      const prompt = buildPrompt(side);
+      const systemPrompt = buildSystemPrompt(side);
+
+      const providers = ['deepseek', 'gemini', 'kimi'];
+
+      const TIMEOUT_MS = 30000;
+      const promises = providers.map((provider) => {
+        const p = callAPI(provider, prompt, systemPrompt);
+        return Promise.race([
+          p,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${provider} 超时 (${TIMEOUT_MS / 1000}s)`)), TIMEOUT_MS)
+          ),
+        ]);
+      });
+
+      const start = performance.now();
+
+      try {
+        const result = await Promise.any(promises);
+        const elapsed = ((performance.now() - start) / 1000).toFixed(1);
+        result.time = elapsed;
+        return result;
+      } catch (e) {
+        if (e.errors && e.errors.length > 0) {
+          const msgs = e.errors.map(err => err.message).join('；');
+          throw new Error(`所有 API 均失败：${msgs}`);
+        }
+        throw e;
+      }
+    }
+
+    // ==================== DISPLAY ====================
+    function createMessageBubble(text, winner, time, side) {
+      const container = document.createElement('div');
+      container.className = 'message-enter';
+
+      const borderColor = side === 'pro' ? 'border-blue-500/30' : 'border-red-500/30';
+      const bgColor = side === 'pro' ? 'bg-blue-500/5' : 'bg-red-500/5';
+      const winnerColor = side === 'pro' ? 'text-blue-400' : 'text-red-400';
+
+      container.innerHTML = `
+        <div class="border ${borderColor} ${bgColor} rounded-lg p-3">
+          <div class="text-sm leading-relaxed text-slate-200 whitespace-pre-wrap"></div>
+          <div class="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700/50">
+            <span class="text-xs text-slate-500">⏱ ${time}s</span>
+          </div>
+        </div>`;
+      return container;
+    }
+
+    async function typeText(element, text, speed) {
+      element.textContent = '';
+      const parent = element.closest('.border');
+      parent.classList.add('typing-cursor');
+
+      for (let i = 0; i < text.length; i++) {
+        if (!state.isRunning && !state.isFinishing) break;
+        element.textContent += text[i];
+        await new Promise(r => setTimeout(r, speed));
+      }
+
+      parent.classList.remove('typing-cursor');
+    }
+
+    function displayMessage(side, result) {
+      const msgContainer = side === 'pro' ? $('#proMessages') : $('#conMessages');
+      // Clear placeholder
+      if (msgContainer.querySelector('.text-center.text-slate-600')) {
+        msgContainer.innerHTML = '';
+      }
+
+      const bubble = createMessageBubble(result.text, result.model, result.time, side);
+      msgContainer.appendChild(bubble);
+
+      const textDiv = bubble.querySelector('.text-sm');
+      const badge = side === 'pro' ? $('#proApiBadge') : $('#conApiBadge');
+      badge.textContent = `⏱ ${result.time}s`;
+      badge.classList.remove('hidden');
+
+      const fastest = $('#fastestApi');
+      fastest.innerHTML = `<span class="text-xs text-slate-500">⏱ ${result.time}s</span>`;
+
+      return typeText(textDiv, result.text, state.speed);
+    }
+
+    function displayHumanMessage(side, text) {
+      const msgContainer = side === 'pro' ? $('#proMessages') : $('#conMessages');
+      if (msgContainer.querySelector('.text-center.text-slate-600')) {
+        msgContainer.innerHTML = '';
+      }
+
+      const container = document.createElement('div');
+      container.className = 'message-enter';
+      container.innerHTML = `
+        <div class="border border-amber-500/50 bg-amber-500/5 rounded-lg p-3">
+          <div class="text-sm leading-relaxed text-slate-200 whitespace-pre-wrap">${escapeHtml(text)}</div>
+          <div class="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700/50">
+            <span class="text-xs text-amber-400 font-semibold">👤 人类</span>
+          </div>
+        </div>`;
+      msgContainer.appendChild(container);
+    }
+
+    function waitForHumanInput(side) {
+      const inputDiv = side === 'pro' ? $('#proHumanInput') : $('#conHumanInput');
+      const textarea = side === 'pro' ? $('#proHumanText') : $('#conHumanText');
+      const keepBox = side === 'pro' ? $('#proKeepTakeover') : $('#conKeepTakeover');
+
+      textarea.value = '';
+      keepBox.checked = false;
+      inputDiv.classList.remove('hidden');
+      textarea.focus();
+
+      return new Promise((resolve) => {
+        state.humanInputResolver = { resolve, side };
+      });
+    }
+
+    function submitHumanInput() {
+      if (!state.humanInputResolver) return;
+      const { resolve, side } = state.humanInputResolver;
+      const textarea = side === 'pro' ? $('#proHumanText') : $('#conHumanText');
+      const inputDiv = side === 'pro' ? $('#proHumanInput') : $('#conHumanInput');
+      const keepBox = side === 'pro' ? $('#proKeepTakeover') : $('#conKeepTakeover');
+
+      const text = textarea.value.trim();
+      if (!text) { toast('请输入发言内容'); return; }
+
+      inputDiv.classList.add('hidden');
+      state.humanInputResolver = null;
+      resolve({ text, keep: keepBox.checked });
+    }
+
+    function releaseTakeover(side) {
+      if (!state.humanInputResolver) return;
+      const inputDiv = side === 'pro' ? $('#proHumanInput') : $('#conHumanInput');
+      inputDiv.classList.add('hidden');
+      state.humanInputResolver = null;
+
+      state.takeoverActive = false;
+      state.takeoverSide = null;
+      updateTakeoverButtons();
+
+      if (state.debateMode === 'human-vs-ai') {
+        setMode('ai-vs-ai');
+      }
+
+      state.isPaused = false;
+      if (state.pauseResolver) {
+        state.pauseResolver();
+        state.pauseResolver = null;
+      }
+    }
+
+    function cancelAllRequests() {
+      state.abortControllers.forEach(c => { try { c.abort(); } catch (_) {} });
+      state.abortControllers = [];
+    }
+
+    function clearArena() {
+      $('#proMessages').innerHTML = `<div class="text-center text-slate-600 text-sm py-12">
+        <i data-lucide="message-square" class="w-10 h-10 mx-auto mb-2 opacity-30"></i><p>等待正方发言...</p></div>`;
+      $('#conMessages').innerHTML = `<div class="text-center text-slate-600 text-sm py-12">
+        <i data-lucide="message-square" class="w-10 h-10 mx-auto mb-2 opacity-30"></i><p>等待反方发言...</p></div>`;
+      $('#proApiBadge').classList.add('hidden');
+      $('#conApiBadge').classList.add('hidden');
+      $('#proHumanInput').classList.add('hidden');
+      $('#conHumanInput').classList.add('hidden');
+      $('#fastestApi').innerHTML = '<span class="text-slate-500 text-xs">等待开始</span>';
+      $('#roundBadge').textContent = `第 0/0 轮`;
+      lucide.createIcons();
+    }
+
+    // ==================== DEBATE FLOW ====================
+    function isHumanTurn(side) {
+      if (state.debateMode === 'human-vs-ai' && state.humanSide === side) return true;
+      if (state.takeoverActive && state.takeoverSide === side) return true;
+      return false;
+    }
+
+    async function waitForResume() {
+      if (!state.isPaused) return;
+      return new Promise(resolve => { state.pauseResolver = resolve; });
+    }
+
+    async function runTurn(side, round) {
+      while (state.isRunning) {
+        await waitForResume();
+        if (!state.isRunning) return null;
+
+        if (isHumanTurn(side)) {
+          const { text, keep } = await waitForHumanInput(side);
+          if (!state.isRunning) return null;
+
+          displayHumanMessage(side, text);
+          const record = { side, text, model: '人类', time: '-', round, isHuman: true };
+          state.debateHistory.push(record);
+
+          if (!keep && state.takeoverActive && state.takeoverSide === side) {
+            state.takeoverActive = false;
+            state.takeoverSide = null;
+            updateTakeoverButtons();
+          }
+
+          return record;
+        } else {
+          const loading = showLoading(side);
+          try {
+            const result = await raceAI(side);
+            removeLoading(loading);
+            if (!state.isRunning) return null;
+            await displayMessage(side, result);
+            const record = { side, ...result, round, isHuman: false };
+            state.debateHistory.push(record);
+            return record;
+          } catch (e) {
+            removeLoading(loading);
+            // 如果是接管触发的取消，重试本回合（人类会接管）
+            if (isHumanTurn(side)) {
+              continue;
+            }
+            if (!state.isRunning) return null;
+            showError(side, e.message);
+            return null;
+          }
+        }
+      }
+      return null;
+    }
+
+    async function runDebate() {
+      // Validate inputs
+      const proPosition = $('#proPositionInput').value.trim();
+      const conPosition = $('#conPositionInput').value.trim();
+      if (!proPosition) { toast('请先输入正方立场'); return; }
+      if (!conPosition) { toast('请先输入反方立场'); return; }
+
+      if (!state.proxyOnline) {
+        toast('代理服务器未连接，请先运行 node proxy.js');
+        return;
+      }
+
+      // If human-vs-ai mode with no humanSide set, default to pro
+      if (state.debateMode === 'human-vs-ai' && !state.humanSide) {
+        state.humanSide = 'pro';
+      }
+
+      // Sync state from UI
+      state.proPosition = proPosition;
+      state.conPosition = conPosition;
+      state.proRole = $('#proRoleSelect').value;
+      state.conRole = $('#conRoleSelect').value;
+      state.rounds = parseInt($('#roundsInput').value) || 3;
+      state.speed = parseInt($('#speedInput').value) || 30;
+      state.tactic = $('#tacticSelect').value;
+      state.currentRound = 0;
+      state.debateHistory = [];
+      state.isRunning = true;
+      state.isPaused = false;
+      state.isFinishing = false;
+      state.humanInterjection = null;
+      state.abortControllers = [];
+
+      // Update UI
+      $('#proRoleTag').textContent = state.proRole;
+      $('#conRoleTag').textContent = state.conRole;
+      updateRoundBadge();
+      clearArena();
+      setButtonsState('running');
+      startTimer();
+
+      try {
+        for (let round = 1; round <= state.rounds; round++) {
+          state.currentRound = round;
+          updateRoundBadge();
+
+          // ---- 正方回合 ----
+          await waitForResume();
+          if (!state.isRunning) break;
+          const proRecord = await runTurn('pro', round);
+          if (!proRecord) break;
+
+          // ---- 反方回合 ----
+          await waitForResume();
+          if (!state.isRunning) break;
+          const conRecord = await runTurn('con', round);
+          if (!conRecord) break;
+        }
+      } catch (e) {
+        toast(`辩论中断：${e.message}`);
+      }
+
+      finishDebate();
+    }
+
+    // ==================== MODE SWITCHING ====================
+    function setMode(mode, humanSide) {
+      cancelAllRequests();
+      state.debateMode = mode;
+      state.humanSide = humanSide || null;
+      state.takeoverActive = false;
+      state.takeoverSide = null;
+
+      // Update mode buttons
+      $('#btnModeAIAI').className = mode === 'ai-vs-ai'
+        ? 'px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-semibold transition-colors'
+        : 'px-3 py-1 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition-colors';
+      $('#btnModeHumanPro').className = mode === 'human-vs-ai' && state.humanSide === 'pro'
+        ? 'px-3 py-1 rounded-full bg-amber-600 text-white text-xs font-semibold transition-colors'
+        : 'px-3 py-1 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition-colors';
+      $('#btnModeHumanCon').className = mode === 'human-vs-ai' && state.humanSide === 'con'
+        ? 'px-3 py-1 rounded-full bg-amber-600 text-white text-xs font-semibold transition-colors'
+        : 'px-3 py-1 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs transition-colors';
+
+      updateTakeoverButtons();
+      setTimeout(() => lucide.createIcons(), 50);
+    }
+
+    function takeover(side) {
+      if (!state.isRunning) {
+        toast('请先开始辩论');
+        return;
+      }
+
+      cancelAllRequests();
+      state.takeoverActive = true;
+      state.takeoverSide = side;
+
+      // If in AI vs AI mode, pause and let human speak for this side
+      if (!state.isPaused) {
+        state.isPaused = true;
+        setButtonsState('paused');
+      }
+
+      updateTakeoverButtons();
+      toast(`已接管${side === 'pro' ? '正方' : '反方'}，请在输入框中发言`);
+    }
+
+    function updateTakeoverButtons() {
+      const proBtn = $('#btnTakeoverPro');
+      const conBtn = $('#btnTakeoverCon');
+
+      if (!state.isRunning) {
+        proBtn.disabled = true;
+        conBtn.disabled = true;
+        proBtn.className = 'flex items-center gap-1 px-3 py-2 bg-blue-600/20 disabled:opacity-40 border border-blue-500/30 text-blue-300 rounded-lg text-xs transition-all opacity-40';
+        conBtn.className = 'flex items-center gap-1 px-3 py-2 bg-red-600/20 disabled:opacity-40 border border-red-500/30 text-red-300 rounded-lg text-xs transition-all opacity-40';
+        return;
+      }
+
+      if (state.takeoverActive && state.takeoverSide === 'pro') {
+        proBtn.innerHTML = '<i data-lucide="user-check" class="w-3 h-3"></i> 已接管正方';
+        proBtn.className = 'flex items-center gap-1 px-3 py-2 bg-amber-600/40 border border-amber-500/50 text-amber-300 rounded-lg text-xs transition-all';
+        proBtn.disabled = false;
+      } else {
+        proBtn.innerHTML = '<i data-lucide="user-plus" class="w-3 h-3"></i> 接管正方';
+        proBtn.className = 'flex items-center gap-1 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg text-xs transition-all';
+        proBtn.disabled = false;
+      }
+
+      if (state.takeoverActive && state.takeoverSide === 'con') {
+        conBtn.innerHTML = '<i data-lucide="user-check" class="w-3 h-3"></i> 已接管反方';
+        conBtn.className = 'flex items-center gap-1 px-3 py-2 bg-amber-600/40 border border-amber-500/50 text-amber-300 rounded-lg text-xs transition-all';
+        conBtn.disabled = false;
+      } else {
+        conBtn.innerHTML = '<i data-lucide="user-plus" class="w-3 h-3"></i> 接管反方';
+        conBtn.className = 'flex items-center gap-1 px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded-lg text-xs transition-all';
+        conBtn.disabled = false;
+      }
+
+      setTimeout(() => lucide.createIcons(), 50);
+    }
+
+    function finishDebate() {
+      state.isRunning = false;
+      state.isFinishing = true;
+      state.isPaused = false;
+      state.takeoverActive = false;
+      state.takeoverSide = null;
+      stopTimer();
+      setButtonsState('finished');
+      updateTakeoverButtons();
+      $('#btnExport').disabled = state.debateHistory.length === 0;
+      $('#btnJudge').disabled = state.debateHistory.length === 0;
+
+      if (state.debateHistory.length > 0) {
+        toast('辩论结束！可查看裁判总结或导出战报');
+      }
+
+      setTimeout(() => lucide.createIcons(), 100);
+    }
+
+    function showLoading(side) {
+      const container = side === 'pro' ? $('#proMessages') : $('#conMessages');
+      if (container.querySelector('.text-center.text-slate-600')) {
+        container.innerHTML = '';
+      }
+      const el = document.createElement('div');
+      el.className = 'message-enter flex items-center gap-3 text-slate-500 p-4';
+      el.innerHTML = `
+        <div class="flex gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style="animation-delay:0ms"></div>
+          <div class="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style="animation-delay:150ms"></div>
+          <div class="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style="animation-delay:300ms"></div>
+        </div>
+        <span class="text-xs">竞速请求中...</span>`;
+      container.appendChild(el);
+      return el;
+    }
+
+    function removeLoading(el) {
+      if (el && el.parentNode) el.remove();
+    }
+
+    function showError(side, msg) {
+      const container = side === 'pro' ? $('#proMessages') : $('#conMessages');
+      if (container.querySelector('.text-center.text-slate-600')) {
+        container.innerHTML = '';
+      }
+      const el = document.createElement('div');
+      el.className = 'message-enter border border-red-500/30 bg-red-500/5 rounded-lg p-3';
+      el.innerHTML = `<div class="text-sm text-red-400">❌ ${msg}</div>`;
+      container.appendChild(el);
+    }
+
+    function setButtonsState(phase) {
+      const start = $('#btnStart');
+      const pause = $('#btnPause');
+      const interject = $('#btnInterject');
+
+      if (phase === 'running') {
+        start.disabled = true;
+        start.innerHTML = '<div class="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div> 辩论中';
+        pause.disabled = false;
+        pause.innerHTML = '<i data-lucide="pause" class="w-4 h-4"></i> 暂停';
+        interject.disabled = false;
+        $('#btnJudge').disabled = true;
+        updateTakeoverButtons();
+      } else if (phase === 'paused') {
+        pause.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> 继续';
+      } else if (phase === 'finished') {
+        start.disabled = false;
+        start.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> 重新辩论';
+        pause.disabled = true;
+        pause.innerHTML = '<i data-lucide="pause" class="w-4 h-4"></i> 暂停';
+        interject.disabled = true;
+        updateTakeoverButtons();
+      }
+      setTimeout(() => lucide.createIcons(), 50);
+    }
+
+    // ==================== JUDGE MODE ====================
+    async function runJudge() {
+      const modal = $('#judgeModal');
+      const content = $('#judgeContent');
+      modal.classList.remove('hidden');
+
+      const provider = 'deepseek';  // 服务端已有 key，全部尝试即可
+
+      content.innerHTML = `<div class="flex items-center justify-center py-8">
+        <div class="flex items-center gap-2 text-slate-500">
+          <div class="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          裁判正在分析双方论点...
+        </div></div>`;
+
+      const transcript = state.debateHistory.map((h, i) => {
+        const side = h.side === 'pro' ? '正方' : '反方';
+        const speaker = h.isHuman ? '👤 人类' : `🤖 ${h.model}`;
+        return `[第${h.round}轮 ${side} · ${speaker}] ${h.text}`;
+      }).join('\n\n');
+
+      const systemPrompt = `你是一名公正的辩论裁判/主席。请对以下辩论进行专业评判。
+要求：
+1. 分析双方的核心论点
+2. 指出双方的主要逻辑谬误（Fallacy Check）
+3. 评价双方的论证质量
+4. 给出一个总体评分和结论
+5. 用 Markdown 格式输出，包含标题和分段`;
+
+      try {
+        const result = await callAPI(provider, `请评判以下辩论：\n\n${transcript}`, systemPrompt);
+        content.innerHTML = `<div class="prose prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap">${escapeHtml(result.text)}</div>`;
+      } catch (e) {
+        content.innerHTML = `<p class="text-red-400">裁判请求失败：${e.message}</p>`;
+      }
+    }
+
+    function closeJudge() {
+      $('#judgeModal').classList.add('hidden');
+    }
+
+    // ==================== EXPORT ====================
+    function exportMarkdown() {
+      if (state.debateHistory.length === 0) { toast('没有可导出的辩论记录'); return; }
+
+      const now = new Date().toLocaleString('zh-CN');
+      let md = `# 🏆 AI 辩论记录\n\n`;
+      md += `- **正方立场**: ${state.proPosition}\n`;
+      md += `- **反方立场**: ${state.conPosition}\n`;
+      md += `- **时间**: ${now}\n`;
+      md += `- **轮数**: ${state.rounds}\n`;
+      md += `- **正方**: ${state.proRole} | **反方**: ${state.conRole}\n`;
+      md += `- **战术**: ${state.tactic === 'none' ? '无' : state.tactic}\n`;
+      md += `- **总用时**: ${$('#timerDisplay').textContent}\n\n---\n\n`;
+
+      let currentRound = 0;
+      for (const h of state.debateHistory) {
+        if (h.round !== currentRound) {
+          currentRound = h.round;
+          md += `## 第 ${currentRound} 轮\n\n`;
+        }
+        const side = h.side === 'pro' ? '🟦 正方' : '🟥 反方';
+        const speaker = h.isHuman ? '👤 人类' : `🏆 ${h.model} · ${h.time}s`;
+        md += `### ${side} (${speaker})\n\n`;
+        md += `${h.text}\n\n`;
+      }
+
+      md += `---\n\n> 🤖 由 AI 辩论模拟器生成 | 使用 Promise.any() 竞速 DeepSeek / Gemini / Kimi\n`;
+
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `辩论记录_${state.proPosition.slice(0, 20)}_vs_${state.conPosition.slice(0, 20)}_${Date.now()}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('战报已导出');
+    }
+
+    // ==================== INTERJECTION ====================
+    function openInterject() {
+      if (!state.isRunning) { toast('辩论尚未开始'); return; }
+      if (!state.isPaused) {
+        state.isPaused = true;
+        setButtonsState('paused');
+      }
+      $('#interjectModal').classList.remove('hidden');
+      $('#interjectText').focus();
+      setTimeout(() => lucide.createIcons(), 50);
+    }
+
+    function closeInterject() {
+      $('#interjectModal').classList.add('hidden');
+    }
+
+    function sendInterjection() {
+      const text = $('#interjectText').value.trim();
+      if (!text) { toast('请输入引导内容'); return; }
+      state.humanInterjection = text;
+      $('#interjectText').value = '';
+      $('#interjectModal').classList.add('hidden');
+      state.isPaused = false;
+      setButtonsState('running');
+      if (state.pauseResolver) {
+        state.pauseResolver();
+        state.pauseResolver = null;
+      }
+      toast('已注入人工引导，辩论继续中...');
+    }
+
+    // ==================== EVENT BINDINGS ====================
+    function bindEvents() {
+      $('#speedInput').addEventListener('input', function () {
+        $('#speedLabel').textContent = this.value + 'ms';
+      });
+
+      $('#btnToggleConfig').addEventListener('click', () => {
+        const panel = $('#configPanel');
+        const isOpen = panel.style.maxHeight !== '0px';
+        panel.style.maxHeight = isOpen ? '0px' : '600px';
+        panel.style.opacity = isOpen ? '0' : '1';
+      });
+
+      $('#btnStart').addEventListener('click', () => {
+        if (state.isRunning) {
+          // Reset for new debate
+          state.isRunning = false;
+          state.isPaused = false;
+          state.debateHistory = [];
+          stopTimer();
+          clearArena();
+          $('#btnExport').disabled = true;
+          $('#btnJudge').disabled = true;
+          setButtonsState('finished');
+          setTimeout(() => {
+            setButtonsState('finished');
+            $('#btnStart').disabled = false;
+            $('#btnStart').innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> 开始辩论';
+            lucide.createIcons();
+          }, 100);
+        }
+        // Small delay so UI updates before we start
+        setTimeout(() => runDebate(), 150);
+      });
+
+      $('#btnPause').addEventListener('click', () => {
+        if (!state.isRunning) return;
+        state.isPaused = !state.isPaused;
+        if (state.isPaused) {
+          setButtonsState('paused');
+        } else {
+          setButtonsState('running');
+          if (state.pauseResolver) {
+            state.pauseResolver();
+            state.pauseResolver = null;
+          }
+        }
+      });
+
+      $('#btnInterject').addEventListener('click', openInterject);
+      $('#btnSendInterject').addEventListener('click', sendInterjection);
+      $('#btnJudge').addEventListener('click', runJudge);
+      $('#btnExport').addEventListener('click', exportMarkdown);
+
+      // Mode buttons
+      $('#btnModeAIAI').addEventListener('click', () => setMode('ai-vs-ai'));
+      $('#btnModeHumanPro').addEventListener('click', () => setMode('human-vs-ai', 'pro'));
+      $('#btnModeHumanCon').addEventListener('click', () => setMode('human-vs-ai', 'con'));
+
+      // Takeover buttons
+      $('#btnTakeoverPro').addEventListener('click', () => {
+        if (state.takeoverActive && state.takeoverSide === 'pro') {
+          // Already takeover pro — release it
+          state.takeoverActive = false;
+          state.takeoverSide = null;
+          updateTakeoverButtons();
+          toast('已释放正方，AI 恢复控制');
+        } else {
+          takeover('pro');
+        }
+      });
+      $('#btnTakeoverCon').addEventListener('click', () => {
+        if (state.takeoverActive && state.takeoverSide === 'con') {
+          state.takeoverActive = false;
+          state.takeoverSide = null;
+          updateTakeoverButtons();
+          toast('已释放反方，AI 恢复控制');
+        } else {
+          takeover('con');
+        }
+      });
+
+      // Human input send buttons
+      $('#btnProSend').addEventListener('click', () => {
+        submitHumanInput();
+        state.isPaused = false;
+        setButtonsState('running');
+        if (state.pauseResolver) { state.pauseResolver(); state.pauseResolver = null; }
+      });
+      $('#btnConSend').addEventListener('click', () => {
+        submitHumanInput();
+        state.isPaused = false;
+        setButtonsState('running');
+        if (state.pauseResolver) { state.pauseResolver(); state.pauseResolver = null; }
+      });
+
+      // Human input release buttons
+      $('#btnProRelease').addEventListener('click', () => releaseTakeover('pro'));
+      $('#btnConRelease').addEventListener('click', () => releaseTakeover('con'));
+
+      // Human input Enter key submit
+      $('#proHumanText').addEventListener('keydown', function (e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          $('#btnProSend').click();
+        }
+      });
+      $('#conHumanText').addEventListener('keydown', function (e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          $('#btnConSend').click();
+        }
+      });
+
+      // Close modals on overlay click
+      $('#interjectModal').addEventListener('click', function (e) {
+        if (e.target === this) closeInterject();
+      });
+      $('#judgeModal').addEventListener('click', function (e) {
+        if (e.target === this) closeJudge();
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', function (e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+          e.preventDefault();
+          if (state.isRunning) {
+            state.isPaused = !state.isPaused;
+            if (state.isPaused) {
+              setButtonsState('paused');
+            } else {
+              setButtonsState('running');
+              if (state.pauseResolver) { state.pauseResolver(); state.pauseResolver = null; }
+            }
+          } else {
+            runDebate();
+          }
+        }
+        if (e.key === 'Escape') {
+          closeInterject();
+          closeJudge();
+        }
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ==================== INIT ====================
+    function init() {
+      bindEvents();
+      checkProxy();
+      lucide.createIcons();
+
+      // Open config by default so user sees the settings
+      setTimeout(() => {
+        $('#configPanel').style.maxHeight = '600px';
+        $('#configPanel').style.opacity = '1';
+      }, 300);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

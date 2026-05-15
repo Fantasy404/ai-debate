@@ -1,0 +1,14 @@
+{
+  "name": "ai-debate-simulator",
+  "version": "1.0.0",
+  "description": "多模型并发 AI 辩论模拟器 — Promise.any() 竞速 DeepSeek / Gemini / Kimi",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js",
+    "dev": "node proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}
